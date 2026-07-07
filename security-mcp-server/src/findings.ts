@@ -44,6 +44,8 @@ export interface SecurityFinding {
   cwe: string[];
   cve?: string[];
   owasp?: string[];
+  /** External reference URLs (e.g. from Semgrep's `metadata.references`). */
+  references?: string[];
   category: Category;
   tool: { name: ScannerId; version?: string };
   fix?: FindingFix;

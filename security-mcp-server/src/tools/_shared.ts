@@ -1,9 +1,11 @@
 import { z } from "zod";
+export { z };
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { Logger } from "pino";
 import type { Config } from "../config.js";
 import type { AuditLogger } from "../audit.js";
 import type { ScannerRegistry } from "../scanners/registry.js";
+import type { SecurityOrchestrator } from "../orchestrator.js";
 import { relativeToRepo } from "../paths.js";
 import { monotonicMs } from "../util/time.js";
 import { toMcpErrorBody } from "../errors.js";
@@ -15,6 +17,8 @@ export interface ToolContext {
   logger: Logger;
   audit: AuditLogger;
   scanners: ScannerRegistry;
+  /** Composition root. Tools that need plugins / remediation should read from here. */
+  orchestrator: SecurityOrchestrator;
   startedAt: number;
 }
 
@@ -71,16 +75,26 @@ export type McpResponseBody =
   | { ok: true; [k: string]: unknown }
   | { ok: false; code: string; message: string };
 
+/**
+ * Tool-call result envelope returned by every MCP tool. Matches the SDK's
+ * `CallToolResult` shape: a `content` array of text blocks, plus an
+ * optional `isError` flag for failures.
+ */
+export type ToolCallResult = {
+  content: { type: "text"; text: string }[];
+  isError?: boolean;
+};
+
 /** Wrap a tool handler with audit logging and uniform error handling. */
 export function auditWrap(
   ctx: ToolContext,
   tool: string,
   args: unknown,
   fn: () => Promise<{ result: Record<string, unknown> }>,
-): Promise<{ content: { type: "text"; text: string }[] }> {
+): Promise<ToolCallResult> {
   const start = monotonicMs();
   return fn()
-    .then(({ result }) => {
+    .then(({ result }): ToolCallResult => {
       const findingCount =
         typeof (result as { findings?: unknown[] }).findings?.length === "number"
           ? ((result as { findings: unknown[] }).findings.length)
@@ -96,7 +110,7 @@ export function auditWrap(
       });
       return { content: [{ type: "text", text: JSON.stringify({ ok: true, ...result }) }] };
     })
-    .catch((err: unknown) => {
+    .catch((err: unknown): ToolCallResult => {
       const outcome = /tool_unavailable|scanner.*not.*found/.test(String((err as { code?: string }).code ?? err))
         ? "unavailable"
         : "error";

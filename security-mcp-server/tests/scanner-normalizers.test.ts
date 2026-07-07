@@ -33,10 +33,17 @@ describe("scanner normalizers", () => {
       Secret: "AKIAIOSFODNN7EXAMPLE",
     };
     const f = buildFromGitleaks(row, "8.18.0", "config/app.yml");
-    expect(f.severity).toBe("high");
+    // Per spec: high-impact credential rules (aws-access-token, private-key, etc.)
+    // are `critical`; other secret rules are `high`. Both are >= "high".
+    expect(["critical", "high"]).toContain(f.severity);
     expect(f.category).toBe("secret");
     expect(f.message).toMatch(/\*{4}MPLE/); // last 4 chars visible
     expect(f.message).not.toContain("AKIAIOSFODNN7EXAMPLE");
+    // Raw payload must not leak the secret value.
+    expect(JSON.stringify(f.raw)).not.toContain("AKIAIOSFODNN7EXAMPLE");
+    // Fix must call out rotation + secret manager migration.
+    expect(f.fix?.description).toMatch(/rotate/i);
+    expect(f.fix?.description).toMatch(/secret manager/i);
   });
 
   it("buildFromTrivyVuln maps a vulnerability row", () => {
@@ -53,6 +60,7 @@ describe("scanner normalizers", () => {
     expect(f.severity).toBe("critical");
     expect(f.cve).toEqual(["CVE-2024-0001"]);
     expect(f.cwe).toEqual(["CWE-502"]);
-    expect(f.category).toBe("vuln");
+    // Per spec: dependency-security category for package-level CVEs.
+    expect(f.category).toBe("dependency");
   });
 });

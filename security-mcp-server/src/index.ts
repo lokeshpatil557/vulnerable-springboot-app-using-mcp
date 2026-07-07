@@ -4,7 +4,10 @@ import { loadConfig } from "./config.js";
 import { createLogger } from "./logger.js";
 import { createAuditLogger } from "./audit.js";
 import { resolveRepoRoot } from "./paths.js";
-import { buildScannerRegistry } from "./scanners/registry.js";
+import {
+  resolveAllowedRootSource,
+  SecurityOrchestrator,
+} from "./orchestrator.js";
 import { createServer } from "./server.js";
 
 const HELP = `security-mcp-server — MCP server for security scanning, stack detection, and verified remediation
@@ -19,7 +22,10 @@ Options:
   -h, --help          Show this help text and exit
 
 Environment:
-  REPO_ROOT, LOG_LEVEL, AUDIT_LOG_PATH, SCAN_TIMEOUT_MS,
+  SECURITY_MCP_ALLOWED_ROOT  Highest-precedence repo-root override.
+  TARGET_REPO_PATH           Fallback repo-root (used when
+                             SECURITY_MCP_ALLOWED_ROOT is unset).
+  LOG_LEVEL, AUDIT_LOG_PATH, SCAN_TIMEOUT_MS,
   MAX_CONCURRENT_SCANNERS, SEMGREP_PATH, GITLEAKS_PATH, TRIVY_PATH,
   INCLUDE_RULE_SETS, REDACT_IN_REPORTS
 
@@ -65,13 +71,34 @@ async function main(): Promise<void> {
   }
 
   const logger = createLogger(config);
-  const repoRoot = config.repoRoot === "auto" ? resolveRepoRoot(process.cwd()) : resolveRepoRoot(config.repoRoot);
+  const repoRoot =
+    config.repoRoot === "auto"
+      ? resolveRepoRoot(process.cwd())
+      : resolveRepoRoot(config.repoRoot);
   const audit = await createAuditLogger(config, repoRoot);
-  const scanners = buildScannerRegistry(config);
+  const allowedRootSource = resolveAllowedRootSource(process.env);
 
-  logger.info({ repoRoot, auditPath: audit.path }, "security-mcp-server starting");
+  // Compose the orchestrator: scanner registry + plugin registry + remediation.
+  const orchestrator = new SecurityOrchestrator({
+    config,
+    logger,
+    repoRoot,
+    allowedRootSource,
+  });
 
-  const server = createServer({ config, logger, audit, scanners, repoRoot });
+  logger.info(
+    { repoRoot, auditPath: audit.path },
+    "security-mcp-server starting",
+  );
+
+  const server = createServer({
+    config,
+    logger,
+    audit,
+    orchestrator,
+    repoRoot,
+    scanners: orchestrator.scanners,
+  });
   const transport = new StdioServerTransport();
   await server.connect(transport);
 

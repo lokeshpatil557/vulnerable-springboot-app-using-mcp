@@ -21,8 +21,16 @@ const ConfigSchema = z.object({
 
 export type Config = z.infer<typeof ConfigSchema>;
 
+/**
+ * Env-var → config-field map. The two repo-root vars follow the contract
+ * documented in the bootstrap:
+ *
+ *   SECURITY_MCP_ALLOWED_ROOT > TARGET_REPO_PATH
+ *
+ * Both are merged onto `repoRoot` via `applyEnvRepoRoot()` so the existing
+ * schema default / CLI override path is preserved.
+ */
 const ENV_KEY_MAP: Record<string, string> = {
-  REPO_ROOT: "repoRoot",
   LOG_LEVEL: "logLevel",
   AUDIT_LOG_PATH: "auditLogPath",
   SCAN_TIMEOUT_MS: "scanTimeoutMs",
@@ -33,6 +41,25 @@ const ENV_KEY_MAP: Record<string, string> = {
   INCLUDE_RULE_SETS: "includeRuleSets",
   REDACT_IN_REPORTS: "redactInReports",
 };
+
+/**
+ * Apply the documented repo-root precedence:
+ *   SECURITY_MCP_ALLOWED_ROOT > TARGET_REPO_PATH
+ *
+ * Empty / unset values are ignored. If neither is set, the input is
+ * returned unchanged (caller falls through to the schema default `"auto"`).
+ */
+function applyEnvRepoRoot(env: NodeJS.ProcessEnv, input: Record<string, unknown>): void {
+  const allowed = (env.SECURITY_MCP_ALLOWED_ROOT ?? "").trim();
+  if (allowed) {
+    input.repoRoot = allowed;
+    return;
+  }
+  const target = (env.TARGET_REPO_PATH ?? "").trim();
+  if (target) {
+    input.repoRoot = target;
+  }
+}
 
 function envToInput(env: NodeJS.ProcessEnv): Record<string, unknown> {
   const out: Record<string, unknown> = {};
@@ -54,6 +81,7 @@ function envToInput(env: NodeJS.ProcessEnv): Record<string, unknown> {
       out[schemaKey] = raw;
     }
   }
+  applyEnvRepoRoot(env, out);
   return out;
 }
 
@@ -62,7 +90,7 @@ export function loadConfig(
   env: NodeJS.ProcessEnv,
   overrides: Partial<Config> = {},
 ): Config {
-  const merged = { ...envToInput(env), ...overrides };
+  const merged: Record<string, unknown> = { ...envToInput(env), ...overrides };
   return ConfigSchema.parse(merged);
 }
 
