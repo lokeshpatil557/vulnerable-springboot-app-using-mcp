@@ -1,0 +1,22 @@
+{
+  "results": [
+    {
+      "check_id": "java.lang.security.audit.formatted-sql-string",
+      "path": "src/main/java/com/example/UserController.java",
+      "start": { "line": 42, "col": 5 },
+      "end": { "line": 42, "col": 60 },
+      "extra": {
+        "message": "User input concatenated into SQL string",
+        "severity": "ERROR",
+        "metadata": {
+          "cwe": ["CWE-89"],
+          "owasp": ["A03:2021 - Injection"]
+        },
+        "fix": "--- a/UserController.java\n+++ b/UserController.java\n-old\n+new",
+        "fix_description": "Use a PreparedStatement"
+      }
+    }
+  ],
+  "errors": [],
+  "version": "1.0.0"
+}

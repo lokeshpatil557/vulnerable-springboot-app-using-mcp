@@ -1,0 +1,18 @@
+[
+  {
+    "Description": "AWS Access Token",
+    "RuleID": "aws-access-token",
+    "Match": "AKIAIOSFODNN7EXAMPLE",
+    "Secret": "AKIAIOSFODNN7EXAMPLE",
+    "File": "src/main/resources/application.properties",
+    "Line": "4",
+    "StartLine": 4,
+    "EndLine": 4,
+    "Commit": "abc123",
+    "Entropy": 4.0,
+    "Author": "dev",
+    "Email": "dev@example.com",
+    "Date": "2026-07-01T00:00:00Z",
+    "Tags": ["key", "AWS"]
+  }
+]
