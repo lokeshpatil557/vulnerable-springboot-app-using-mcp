@@ -33,8 +33,15 @@ Designed to run as a Claude Code MCP server over **stdio**.
 
 ## Install & build
 
+The MCP server is registered with Claude Code through a **project-scoped
+`.mcp.json` at the monorepo root** (one level up from this folder). It
+references `dist/index.js` here using a `${CLAUDE_PROJECT_DIR:-.}`
+variable, so every teammate gets the same registration without editing
+a path.
+
 ```bash
-cd C:/Users/Lenovo/Downloads/security-mcp-server
+# from the monorepo root
+cd security-mcp-server
 npm install
 npm run typecheck   # tsc --noEmit
 npm test            # vitest run
@@ -47,6 +54,11 @@ You can also run the source directly without a build step:
 npm run dev   # tsx watch src/index.ts
 ```
 
+> If you cloned the repo into a non-standard location and `dist/` is
+> missing, the server will fail to spawn from `.mcp.json`. Run
+> `npm run build` (above) — `dist/` is gitignored so each machine owns
+> its own copy.
+
 ---
 
 ## Run as an MCP server
@@ -55,18 +67,58 @@ The server speaks the MCP protocol over **stdio**. The host (Claude Code) is res
 
 ### Add to Claude Code
 
-```bash
-# Local install (recommended for development):
-claude mcp add security-mcp-server -- node "C:/Users/Lenovo/Downloads/security-mcp-server/dist/index.js"
+**Recommended — project-scoped (no path editing required):** a
+`.mcp.json` is committed at the monorepo root. Open Claude Code from
+the repo root and the server is registered automatically for every
+team member:
 
-# OR via npm script (after npm link):
-claude mcp add security-mcp-server -- security-mcp-server
+```bash
+# from the monorepo root
+claude
+# then inside Claude Code, run: /mcp
+# → "security-mcp-server" should show as connected
+```
+
+The path inside `.mcp.json` is
+`${CLAUDE_PROJECT_DIR:-.}/security-mcp-server/dist/index.js`, which
+Claude Code resolves to the absolute path of *your* checkout at spawn
+time. No `claude mcp add` call, no per-machine edits.
+
+**The same `.mcp.json` works for every app repo.** No `REPO_ROOT` is
+pinned in the env block — the server auto-detects the Git repo to
+scan by walking up from Claude Code's launch directory until it hits
+a `.git` entry. So to switch apps, `cd` into the repo you want to
+work on before launching Claude:
+
+```bash
+cd ~/work/billing-service
+claude                       # scans billing-service
+```
+
+```bash
+cd ~/work/checkout-app
+claude                       # scans checkout-app
+```
+
+The registration is identical for every teammate and every app; only
+the launch directory changes. To scan two repos in parallel, open a
+second Claude Code session in the other repo.
+
+**Escape hatch — per-user `claude mcp add`** (only if you cannot put
+`.mcp.json` in the repo root). Adjust the path to match your checkout:
+
+```bash
+# POSIX (bash / zsh):
+claude mcp add security-mcp-server -- node "$PWD/dist/index.js"
+
+# Windows PowerShell:
+claude mcp add security-mcp-server -- node "$PWD\dist\index.js"
 
 # Override the default Git repo root (otherwise the server walks up to the
 # nearest .git from the calling Claude Code session's CWD):
 claude mcp add security-mcp-server \
-  --env REPO_ROOT="C:/Users/Lenovo/path/to/your/repo" \
-  -- node "C:/Users/Lenovo/Downloads/security-mcp-server/dist/index.js"
+  --env REPO_ROOT="/absolute/path/to/your/repo" \
+  -- node "$PWD/dist/index.js"
 ```
 
 See [`examples/claude_code_add.sh`](./examples/claude_code_add.sh) for a one-liner you can paste.
@@ -76,7 +128,12 @@ See [`examples/claude_code_add.sh`](./examples/claude_code_add.sh) for a one-lin
 ```bash
 # Run the server. It will block on stdin; send a JSON-RPC initialize frame to
 # start, or just use a real MCP client.
-node dist/index.js --repo-root "C:/Users/Lenovo/Downloads/sprint_boot_applications_demo_git"
+#
+# No --repo-root: the server walks up from cwd to the nearest .git.
+node dist/index.js
+
+# Equivalent — point at a specific repo explicitly:
+node dist/index.js --repo-root "../sprint_boot_applications_demo_git"
 ```
 
 A `--print-config` flag prints the resolved config and exits without binding stdio:
@@ -168,7 +225,7 @@ No absolute paths are hardcoded; multiple developers on different machines (and 
 This machine does not have `semgrep`, `gitleaks`, or `trivy` on `PATH`. The server still works for everything that does not require an external binary:
 
 ```bash
-node dist/index.js --repo-root "C:/Users/Lenovo/Downloads/sprint_boot_applications_demo_git"
+node dist/index.js --repo-root "../sprint_boot_applications_demo_git"
 ```
 
 In a Claude Code session pointed at the Spring Boot lab repo, expect:

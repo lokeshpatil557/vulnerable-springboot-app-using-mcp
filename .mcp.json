@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "security-mcp-server": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${CLAUDE_PROJECT_DIR:-.}/security-mcp-server/dist/index.js"],
+      "env": {
+        "LOG_LEVEL": "info"
+      }
+    }
+  }
+}
