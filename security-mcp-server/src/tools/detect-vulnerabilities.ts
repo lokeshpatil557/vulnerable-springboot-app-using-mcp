@@ -1,8 +1,11 @@
-import type { ToolContext, AnyMcpServer, RunScannersInput } from "./_shared.js";
+import { z } from "zod";
+import type { ToolContext, AnyMcpServer } from "./_shared.js";
 import { RunScannersInput as Schema, auditWrap, ok } from "./_shared.js";
 import { runScanners } from "../scanners/registry.js";
 import { identifyCodebase } from "../stack-detect.js";
 import { getAdapters } from "../adapters/registry.js";
+
+type RunScannersInput = z.infer<typeof Schema>;
 
 export function register(server: AnyMcpServer, ctx: ToolContext): void {
   server.tool(

@@ -11,7 +11,7 @@
 #
 # Environment overrides:
 #   PREFERRED_PKG_MANAGER = "winget" | "scoop" | "choco"   (default: auto)
-#   SEMGREP_VERSION        (default: 1.95.0 — install pinned to this if set)
+#   SEMGREP_VERSION        (default: 1.95.0 - install pinned to this if set)
 #   GITLEAKS_VERSION       (default: 8.18.4)
 #   TRIVY_VERSION          (default: 0.50.1)
 #
@@ -20,13 +20,27 @@
 #   1  At least one scanner could not be installed.
 #   2  Required prerequisite missing (e.g. no supported package manager).
 
+
 [CmdletBinding()]
 param(
   [string]$PreferredPkgManager = $env:PREFERRED_PKG_MANAGER,
-  [string]$SemgrepVersion = ${env:SEMGREP_VERSION} ?? "1.95.0",
-  [string]$GitleaksVersion = ${env:GITLEAKS_VERSION} ?? "8.18.4",
-  [string]$TrivyVersion = ${env:TRIVY_VERSION} ?? "0.50.1"
+  [string]$SemgrepVersion = $env:SEMGREP_VERSION,
+  [string]$GitleaksVersion = $env:GITLEAKS_VERSION,
+  [string]$TrivyVersion = $env:TRIVY_VERSION
 )
+
+if ([string]::IsNullOrWhiteSpace($SemgrepVersion)) {
+    $SemgrepVersion = "1.95.0"
+}
+
+if ([string]::IsNullOrWhiteSpace($GitleaksVersion)) {
+    $GitleaksVersion = "8.18.4"
+}
+
+if ([string]::IsNullOrWhiteSpace($TrivyVersion)) {
+    $TrivyVersion = "0.50.1"
+}
+
 
 $ErrorActionPreference = "Stop"
 
@@ -86,7 +100,7 @@ function Install-Gitleaks {
     Write-Host "  installing via 'choco install gitleaks'..."
     & choco install gitleaks -y
   } else {
-    Write-Error "  no supported package manager found. Install one of: winget, scoop, choco — then re-run."
+    Write-Error "  no supported package manager found. Install one of: winget, scoop, choco - then re-run."
     return $null
   }
   return (Test-Binary "gitleaks")
@@ -110,7 +124,7 @@ function Install-Trivy {
     Write-Host "  installing via 'choco install trivy'..."
     & choco install trivy -y
   } else {
-    Write-Error "  no supported package manager found. Install one of: winget, scoop, choco — then re-run."
+    Write-Error "  no supported package manager found. Install one of: winget, scoop, choco - then re-run."
     return $null
   }
   return (Test-Binary "trivy")
@@ -120,9 +134,9 @@ function Install-Trivy {
 
 $results = [ordered]@{}
 
-$results["semgrep"]  = Install-Semgrep
-$results["gitleaks"] = Install-Gitleaks
-$results["trivy"]    = Install-Trivy
+$results["semgrep"]  = (Install-Semgrep)
+$results["gitleaks"] = (Install-Gitleaks)
+$results["trivy"]    = (Install-Trivy)
 
 Write-Section "summary"
 $failed = @()

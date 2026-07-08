@@ -1,6 +1,7 @@
 import { mkdir, stat } from "node:fs/promises";
 import { dirname, isAbsolute, resolve } from "node:path";
 import { pino, type Logger } from "pino";
+import { destination as pinoDestination } from "pino";
 import type { Config } from "./config.js";
 
 export type AuditOutcome = "ok" | "error" | "unavailable" | "denied";
@@ -72,7 +73,7 @@ export async function createAuditLogger(
         level: (label) => ({ level: label }),
       },
     },
-    pino.destination({
+    pinoDestination({
       dest: target,
       sync: true, // audit must not be lost on process exit
       mkdir: true,

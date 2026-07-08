@@ -36,7 +36,7 @@ export function renderMarkdownReport(findings: SecurityFinding[], meta: ReportMe
       if (f.cwe.length) lines.push(`- CWE: ${f.cwe.join(", ")}`);
       if (f.cve?.length) lines.push(`- CVE: ${f.cve.join(", ")}`);
       if (f.owasp?.length) lines.push(`- OWASP: ${f.owasp.join(", ")}`);
-      lines.push(`- Confidence: ${f.confidence}`);
+      lines.push(`- Confidence: ${f.fix?.confidence ?? "n/a"}`);
       lines.push(`- Message: ${f.message}`);
       if (f.fix?.description) lines.push(`- Fix: ${f.fix.description}`);
       lines.push(`- Fingerprint: \`${f.fingerprint}\``);
@@ -55,7 +55,7 @@ function countBySeverity(findings: SecurityFinding[]): Record<string, number> {
 function groupByFile(findings: SecurityFinding[]): Record<string, SecurityFinding[]> {
   const out: Record<string, SecurityFinding[]> = {};
   for (const f of findings) {
-    (out[f.path] ||= []).push(f);
+    (out[f.location.path] ||= []).push(f);
   }
   return out;
 }

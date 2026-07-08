@@ -45,5 +45,5 @@ function severityRank(s: SecurityFinding["severity"]): number {
 }
 
 function formatFindingLine(f: SecurityFinding): string {
-  return `- ${severityEmoji(f.severity)} **${f.ruleId}** — \`${f.path}:${f.location.startLine}\` — ${f.message}`;
+  return `- ${severityEmoji(f.severity)} **${f.ruleId}** — \`${f.location.path}:${f.location.startLine}\` — ${f.message}`;
 }

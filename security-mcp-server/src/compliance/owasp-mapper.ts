@@ -32,8 +32,10 @@ const RULES: Array<{ id: string; owasp: OwaspCategory; keywords: RegExp[] }> = [
 export function mapToOwasp(finding: SecurityFinding): OwaspCategory | "other" {
   if (finding.owasp && finding.owasp.length) {
     const tag = finding.owasp[0];
-    const found = RULES.find((r) => tag.toUpperCase().startsWith(r.id));
-    if (found) return found.owasp;
+    if (tag) {
+      const found = RULES.find((r) => tag.toUpperCase().startsWith(r.id));
+      if (found) return found.owasp;
+    }
   }
   const haystack = `${finding.ruleId} ${finding.message} ${finding.category}`;
   for (const r of RULES) {

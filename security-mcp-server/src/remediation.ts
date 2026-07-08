@@ -105,7 +105,10 @@ function applyTemplate(
     }
     return { description: tpl.description, replacement: null, anchor: tpl.pattern };
   }
-  return { description: tpl.description, replacement: null, anchor: "" };
+  // Exhaustiveness — should be unreachable since `RemediationTemplate.kind`
+  // is a closed set, but provide a safe default for forward-compat.
+  const fallback = tpl as { description?: string };
+  return { description: fallback.description ?? "", replacement: null, anchor: "" };
 }
 
 function applyAnchorReplace(contents: string, anchor: string, replacement: string): string {

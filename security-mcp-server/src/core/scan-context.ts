@@ -1,5 +1,5 @@
 import type { Logger } from "pino";
-import type { Config } from "./scan-context.js";
+import type { Config } from "../config.js";
 import type { ScannerId } from "./finding.js";
 import { resolveRepoRoot } from "../security/path-safety.js";
 
@@ -30,21 +30,8 @@ export interface ScanContext {
   readonly startedAt: number;
 }
 
-/** Resolved, immutable configuration. */
-export interface Config {
-  repoRoot: string;
-  logLevel: "trace" | "debug" | "info" | "warn" | "error" | "fatal";
-  auditLogPath: string;
-  scanTimeoutMs: number;
-  maxConcurrentScanners: number;
-  perScannerBinaries: {
-    semgrep?: string;
-    gitleaks?: string;
-    trivy?: string;
-  };
-  includeRuleSets: string[];
-  redactInReports: boolean;
-}
+/** Resolved, immutable configuration (re-exported from config module). */
+export type { Config } from "../config.js";
 
 const DEFAULTS: Config = {
   repoRoot: "auto",
@@ -55,6 +42,17 @@ const DEFAULTS: Config = {
   perScannerBinaries: {},
   includeRuleSets: [],
   redactInReports: true,
+  scannerFailFast: false,
+  pathSafety: {
+    allowedRoot: "",
+    maxFileBytes: 26_214_400,
+    maxRepoBytes: 1_073_741_824,
+    maxDiffBytes: 1_048_576,
+    followSymlinks: false,
+    allowApplyRemediation: false,
+    blockedFiles: [],
+    forbiddenAncestors: [],
+  },
 };
 
 /**

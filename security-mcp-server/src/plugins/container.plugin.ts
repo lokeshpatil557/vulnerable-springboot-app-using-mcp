@@ -1,4 +1,5 @@
-import { existsSync, readdir, stat } from "node:fs";
+import { existsSync } from "node:fs";
+import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { DetectionMatch, StackPlugin, ExtraRule } from "./plugin.interface.js";
 

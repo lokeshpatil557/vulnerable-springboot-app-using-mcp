@@ -37,7 +37,7 @@ export interface AuditLoggerOptions {
  * a buffer is enabled) also keeps the most recent events in memory for tests.
  */
 export class AuditLogger {
-  private stream: WriteStream;
+  private stream: WriteStream | undefined;
   private buffer: AuditEvent[] = [];
   private readonly bufferSize: number;
   readonly path: string;
@@ -67,7 +67,7 @@ export class AuditLogger {
     if (this.buffer.length > this.bufferSize) this.buffer.shift();
     // Write JSONL line.
     try {
-      this.stream.write(JSON.stringify(enriched) + "\n");
+      this.stream?.write(JSON.stringify(enriched) + "\n");
     } catch {
       // best-effort; never crash the calling tool
     }
@@ -82,9 +82,12 @@ export class AuditLogger {
   async close(): Promise<void> {
     if (this.closed) return;
     this.closed = true;
-    await new Promise<void>((resolve) => {
-      this.stream.end(() => resolve());
-    });
+    const stream = this.stream;
+    if (stream) {
+      await new Promise<void>((resolve) => {
+        stream.end(() => resolve());
+      });
+    }
   }
 }
 

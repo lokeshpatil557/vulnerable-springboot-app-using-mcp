@@ -75,7 +75,7 @@ export async function runBinary(
       cwd: options.cwd,
       timeout: options.timeoutMs,
       reject: false,
-      input: options.input ?? null,
+      input: options.input ?? undefined,
       env: options.env ?? process.env,
       maxBuffer: 256 * 1024 * 1024,
       stdio: ["pipe", "pipe", "pipe"],

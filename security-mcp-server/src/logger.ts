@@ -1,4 +1,5 @@
 import { pino, type Logger } from "pino";
+import { destination as pinoDestination } from "pino";
 import type { Config } from "./config.js";
 
 /**
@@ -15,5 +16,5 @@ export function createLogger(config: Config): Logger {
     ...(isStdio
       ? {}
       : {}),
-  }, isStdio ? pino.destination(2) : pino.destination(2));
+  }, isStdio ? pinoDestination(2) : pinoDestination(2));
 }

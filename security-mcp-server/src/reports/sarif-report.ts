@@ -41,7 +41,7 @@ export function renderSarifReport(findings: SecurityFinding[], meta: ReportMeta)
           locations: [
             {
               physicalLocation: {
-                artifactLocation: { uri: f.path },
+                artifactLocation: { uri: f.location.path },
                 region: {
                   startLine: f.location.startLine,
                   endLine: f.location.endLine ?? f.location.startLine,
@@ -52,7 +52,7 @@ export function renderSarifReport(findings: SecurityFinding[], meta: ReportMeta)
           partialFingerprints: { primary: f.fingerprint },
           properties: {
             severity: f.severity,
-            confidence: f.confidence,
+            confidence: f.fix?.confidence ?? "n/a",
             category: f.category,
             cwe: f.cwe,
             cve: f.cve,

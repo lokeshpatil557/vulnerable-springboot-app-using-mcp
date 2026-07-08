@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ToolContext } from "./_shared.js";
+export type { ToolContext } from "./_shared.js";
 import * as scanDirectory from "./scan-directory.js";
 import * as identifyCodebase from "./identify-codebase.js";
 import * as detectVulnerabilities from "./detect-vulnerabilities.js";

@@ -1,8 +1,11 @@
 import { join } from "node:path";
-import type { ToolContext, AnyMcpServer, RunScannersInput } from "./_shared.js";
+import { z } from "zod";
+import type { ToolContext, AnyMcpServer } from "./_shared.js";
 import { RunScannersInput as RunScannersSchema, auditWrap, ok } from "./_shared.js";
 import { runScanners } from "../scanners/registry.js";
 import { readTextFile } from "../util/fs.js";
+
+type RunScannersInput = z.infer<typeof RunScannersSchema>;
 
 export function register(server: AnyMcpServer, ctx: ToolContext): void {
   server.tool(

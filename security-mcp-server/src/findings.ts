@@ -32,6 +32,8 @@ export interface FindingFix {
   description: string;
   /** Unified diff (single file) — empty string means "manual review required". */
   diff: string;
+  /** Confidence in the auto-generated fix. */
+  confidence?: "high" | "low";
 }
 
 export interface SecurityFinding {

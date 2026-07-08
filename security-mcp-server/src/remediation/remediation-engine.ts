@@ -42,7 +42,7 @@ export class RemediationEngine {
     const finding = scan.findings.find((f) => f.fingerprint === findingId || f.id === findingId);
     if (!finding) return null;
     const fix = proposeFix(finding, fileContents);
-    return { description: fix.description, diff: fix.diff, confidence: fix.confidence };
+    return { description: fix.description, diff: fix.diff, confidence: fix.confidence ?? "low" };
   }
 
   async apply(
@@ -59,7 +59,7 @@ export class RemediationEngine {
     if (!finding) throw new Error("finding not found");
     const fix = proposeFix(finding, fileContents);
     if (!fix.diff) throw new Error("no automated fix available for this finding");
-    const target = assertInsideRepo(options.repoRoot, finding.path);
+    const target = assertInsideRepo(options.repoRoot, finding.location.path);
     const backupDir = safeJoin(options.repoRoot, ".security-mcp", "backups", new Date().toISOString().replace(/[:.]/g, "-"));
     const backupPath = join(backupDir, target);
     const sha = await sha256Hex(fileContents);

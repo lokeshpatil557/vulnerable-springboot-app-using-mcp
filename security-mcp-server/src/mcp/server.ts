@@ -1,13 +1,12 @@
 /**
- * MCP server bootstrap. Wires the ScanContext, audit logger, and tool
+ * MCP server bootstrap. Wires the ToolContext, audit logger, and tool
  * registry into a McpServer instance and connects it over stdio.
  */
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import type { ScanContext } from "../core/scan-context.js";
-import { registerAllTools } from "./tools.js";
+import { registerAllTools, type ToolContext } from "../tools/index.js";
 
-export async function startServer(ctx: ScanContext): Promise<void> {
+export async function startServer(ctx: ToolContext): Promise<void> {
   const server = new McpServer(
     {
       name: "security-mcp-server",
@@ -28,7 +27,7 @@ export async function startServer(ctx: ScanContext): Promise<void> {
   // would corrupt the JSON-RPC stream. Use ctx.logger (stderr) for diagnostics.
 }
 
-export function createMcpServer(ctx: ScanContext): McpServer {
+export function createMcpServer(ctx: ToolContext): McpServer {
   const server = new McpServer(
     {
       name: "security-mcp-server",

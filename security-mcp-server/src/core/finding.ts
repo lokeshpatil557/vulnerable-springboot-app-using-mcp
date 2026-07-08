@@ -24,6 +24,8 @@ export interface FindingLocation {
 export interface FindingFix {
   description: string;
   diff: string;
+  /** Confidence in the auto-generated fix. */
+  confidence?: "high" | "low";
 }
 
 /** Tool identifier — one of the three scanners. */
