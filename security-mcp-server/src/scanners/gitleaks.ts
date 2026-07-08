@@ -55,6 +55,15 @@ export class GitleaksAdapter implements ScannerAdapter {
     return this.bin;
   }
 
+  /**
+   * Re-point this adapter at a different binary. Used by the
+   * `ToolManager` after it has resolved a scanner on PATH. See the
+   * matching method on `SemgrepAdapter` for the cast rationale.
+   */
+  setBinaryPath(path: string): void {
+    (this as unknown as { bin: string }).bin = path;
+  }
+
   async isAvailable(): Promise<{ ok: boolean; version?: string; reason?: string }> {
     const res = await checkAvailable(this.bin, this.logger());
     if (res.ok && res.version) this.version = res.version;

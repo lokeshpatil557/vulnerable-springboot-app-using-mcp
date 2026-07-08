@@ -98,6 +98,45 @@ export class ToolUnavailableError extends Error {
   }
 }
 
+/**
+ * Thrown by the `ToolManager` (and surfaced by the orchestrator) when
+ * one or more scanners are unavailable AND the manager is in `failFast`
+ * mode (opt-in via `SCANNER_FAIL_FAST=1`). Carries the full list of
+ * missing tools and the per-tool install hints so the operator gets a
+ * single, actionable error message instead of one-at-a-time.
+ *
+ * Does **not** extend `ToolUnavailableError` because the parent's
+ * `readonly code: "tool_unavailable"` is a literal type — narrowing it
+ * in a child is not assignable. We keep the `code`-string-based
+ * matching contract: callers that previously did
+ * `if (err.code === "tool_unavailable")` will not match this class,
+ * and that is the intended behaviour (a missing dependency is a
+ * different class of failure).
+ */
+export interface ScannerDependencyDetail {
+  readonly key: string;
+  readonly reason: string;
+  readonly binaryPath: string | null;
+  readonly status: string;
+}
+
+export class ScannerDependencyMissingError extends Error {
+  readonly code = "scanner_dependency_missing";
+  readonly missing: string[];
+  readonly details: ReadonlyArray<ScannerDependencyDetail>;
+
+  constructor(details: ReadonlyArray<ScannerDependencyDetail>) {
+    const lines = details.map(
+      (d) => `  - ${d.key}: ${d.reason}${d.binaryPath ? ` (last attempt: ${d.binaryPath})` : ""}`,
+    );
+    const summary = `Required scanner(s) unavailable:\n${lines.join("\n")}`;
+    super(summary);
+    this.name = "ScannerDependencyMissingError";
+    this.missing = details.map((d) => d.key);
+    this.details = details;
+  }
+}
+
 export class ScannerTimeoutError extends Error {
   readonly code = "scanner_timeout";
   constructor(public readonly scanner: string, public readonly timeoutMs: number) {

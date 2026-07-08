@@ -2,6 +2,7 @@ node_modules/
 dist/
 coverage/
 .security-mcp/
+.tools/   # optional local pin dir created by setup-scanners.sh on demand
 *.log
 .DS_Store
 .env

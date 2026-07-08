@@ -19,7 +19,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "start": "node dist/index.js",
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "setup:scanners": "node scripts/run-setup.js"
   },
   "engines": {
     "node": ">=20"

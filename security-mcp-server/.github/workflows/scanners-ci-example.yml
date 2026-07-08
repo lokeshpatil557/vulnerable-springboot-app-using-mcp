@@ -1,0 +1,112 @@
+# Reference GitHub Actions workflow for the security-mcp-server.
+#
+# This is a *complete* example you can copy into your own pipeline.
+# The steps shown here are the only ones that depend on the scanner
+# binaries; everything else (build, test, lint) is unchanged.
+#
+# The same pattern works on GitLab CI, Buildkite, CircleCI, etc. —
+# the only step that varies per host is the runner image name.
+
+name: security-scan (reference)
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. Install the three external scanners on a fresh runner.
+  # ---------------------------------------------------------------------------
+  setup:
+    name: Install scanners (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Python (semgrep dependency)
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install scanners (POSIX)
+        if: matrix.os == 'ubuntu-latest' || matrix.os == 'macos-latest'
+        run: |
+          cd security-mcp-server
+          npm ci
+          bash scripts/setup-scanners.sh
+
+      - name: Install scanners (Windows)
+        if: matrix.os == 'windows-latest'
+        run: |
+          cd security-mcp-server
+          npm ci
+          powershell -ExecutionPolicy Bypass -File scripts/setup-scanners.ps1
+
+  # ---------------------------------------------------------------------------
+  # 2. Build, typecheck, and unit-test the server itself.
+  # ---------------------------------------------------------------------------
+  build-test:
+    name: Build & test (ubuntu)
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install + build + test
+        working-directory: security-mcp-server
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+          npm run build
+
+  # ---------------------------------------------------------------------------
+  # 3. Run the actual scan against the target repo with fail-fast enabled.
+  #    This is the step that "uses" the installed scanners end-to-end.
+  # ---------------------------------------------------------------------------
+  scan:
+    name: Scan target repo
+    needs: build-test
+    runs-on: ubuntu-latest
+    env:
+      SCANNER_FAIL_FAST: "1"   # fail the job if any scanner is missing
+      TARGET_REPO_PATH: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install scanners
+        working-directory: security-mcp-server
+        run: bash scripts/setup-scanners.sh
+      - name: Build
+        working-directory: security-mcp-server
+        run: npm ci && npm run build
+      - name: Run scan (smoke)
+        working-directory: security-mcp-server
+        # In a real pipeline you'd call one of the registered MCP tools
+        # (scan_directory / run_sast / run_dependency_scan) via your MCP
+        # host. The `--print-config` flag below is a non-stdio smoke
+        # test that boots, resolves the scanners, and exits 0.
+        run: |
+          node dist/index.js --print-config
+          node dist/index.js --repo-root "${TARGET_REPO_PATH}" &
+          SERVER_PID=$!
+          sleep 2
+          kill -TERM "${SERVER_PID}" 2>/dev/null || true
+          wait "${SERVER_PID}" 2>/dev/null || true

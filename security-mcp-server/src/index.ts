@@ -9,6 +9,7 @@ import {
   SecurityOrchestrator,
 } from "./orchestrator.js";
 import { createServer } from "./server.js";
+import { ScannerDependencyMissingError } from "./errors.js";
 
 const HELP = `security-mcp-server — MCP server for security scanning, stack detection, and verified remediation
 
@@ -27,7 +28,11 @@ Environment:
                              SECURITY_MCP_ALLOWED_ROOT is unset).
   LOG_LEVEL, AUDIT_LOG_PATH, SCAN_TIMEOUT_MS,
   MAX_CONCURRENT_SCANNERS, SEMGREP_PATH, GITLEAKS_PATH, TRIVY_PATH,
-  INCLUDE_RULE_SETS, REDACT_IN_REPORTS
+  INCLUDE_RULE_SETS, REDACT_IN_REPORTS, SCANNER_FAIL_FAST
+                             SCANNER_FAIL_FAST=1 makes the server exit
+                             at boot if any of semgrep / gitleaks /
+                             trivy cannot be located on PATH (or via
+                             the *_PATH env vars). Default: off.
 
 The server speaks the MCP protocol over stdio. All logging is written to
 stderr so the protocol stream on stdout stays clean.
@@ -85,6 +90,45 @@ async function main(): Promise<void> {
     repoRoot,
     allowedRootSource,
   });
+
+  // Discover external scanners (semgrep / gitleaks / trivy) before we
+  // bind stdio. When SCANNER_FAIL_FAST=1, this throws
+  // `ScannerDependencyMissingError` on the first missing scanner and
+  // we exit 1 with a structured error on stderr — no half-initialised
+  // MCP server is ever left around.
+  let resolvedTools;
+  try {
+    resolvedTools = await orchestrator.discoverTools();
+    if (config.scannerFailFast) {
+      const missing = resolvedTools.filter((r) => !r.available);
+      if (missing.length > 0) {
+        // Will be caught by the main().catch below.
+        throw new ScannerDependencyMissingError(
+          missing.map((m) => ({
+            key: m.key,
+            reason: m.reason,
+            binaryPath: m.binaryPath,
+            status: m.status,
+          })),
+        );
+      }
+    }
+  } catch (err) {
+    if (err instanceof ScannerDependencyMissingError) {
+      // Print to stderr directly — never via the logger's destination
+      // abstraction, so the message reaches the operator even if the
+      // logger was reconfigured by a test harness.
+      process.stderr.write(
+        `security-mcp-server: required scanner(s) unavailable\n` +
+          err.message +
+          "\n" +
+          "Set SCANNER_FAIL_FAST=0 (or unset it) to start the server " +
+          "anyway; missing scanners will be reported per-tool via the " +
+          "`unavailable[]` array.\n",
+      );
+    }
+    throw err;
+  }
 
   logger.info(
     { repoRoot, auditPath: audit.path },

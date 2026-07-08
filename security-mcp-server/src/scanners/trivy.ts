@@ -82,6 +82,15 @@ export class TrivyAdapter implements ScannerAdapter {
     return this.bin;
   }
 
+  /**
+   * Re-point this adapter at a different binary. Used by the
+   * `ToolManager` after it has resolved a scanner on PATH. See the
+   * matching method on `SemgrepAdapter` for the cast rationale.
+   */
+  setBinaryPath(path: string): void {
+    (this as unknown as { bin: string }).bin = path;
+  }
+
   /** Update the mode / image / sbom output path between calls. */
   setOptions(opts: TrivyRunOptions): void {
     this.options = opts;

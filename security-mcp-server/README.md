@@ -11,6 +11,7 @@ Designed to run as a Claude Code MCP server over **stdio**.
 - **17 MCP tools** — `scan_directory`, `identify_codebase`, `detect_vulnerabilities`, `run_sast`, `run_secret_scan`, `scan_repository`, `scan_file`, `run_dependency_scan`, `run_container_scan`, `generate_remediation`, `apply_remediation`, `verify_fix`, `generate_security_report`, `compliance_check`, `generate_sbom`, `_supported_stacks`, `list_security_rules`.
 - **Three scanner integrations** — `semgrep` (SAST), `gitleaks` (secrets), `trivy` (deps, container, IaC, SBOM).
 - **Graceful degradation** — tools that need a missing scanner return a structured `tool_unavailable` error; the rest of the server still works.
+- **External-tool discovery** — a `ToolManager` walks env → project-local → `PATH` (no hardcoded absolute paths) and records each scanner's resolved path, version, and install hint. Opt-in fail-fast via `SCANNER_FAIL_FAST=1`. See [`docs/REQUIRED_SCANNERS.md`](./docs/REQUIRED_SCANNERS.md) for the install matrix and CI guidance.
 - **Stack detection** for 12 stacks (Java + Spring Boot, .NET / ASP.NET, Express.js, NestJS, Django, Flask, FastAPI, React, Angular, Vue.js, microservices, containerized, monolith fallback). Adding a stack = one file in `src/adapters/`.
 - **Repo-root sandbox** — every path arg is asserted inside the resolved Git root before any FS read, write, or child-process invocation.
 - **Read-only by default** — `apply_remediation` is the only mutating tool and requires `acknowledged: true`; it always backs up the file and rolls back on verification failure.
@@ -23,10 +24,10 @@ Designed to run as a Claude Code MCP server over **stdio**.
 ## Requirements
 
 - **Node.js >= 20** (the `engines` field enforces this). If you don't have Node, install it first: <https://nodejs.org/> or `winget install OpenJS.NodeJS.LTS` on Windows.
-- Optional scanner CLIs (each is **independently optional**):
-  - [`semgrep`](https://docs.semgrep.dev/) — `pip install semgrep` or download from <https://semgrep.dev/docs/getting-started>.
-  - [`gitleaks`](https://github.com/gitleaks/gitleaks) — `brew install gitleaks` / `scoop install gitleaks` / `choco install gitleaks`.
-  - [`trivy`](https://trivy.dev/) — `brew install trivy` / `scoop install trivy` / `choco install trivy` (Trivy downloads its vulnerability DB on first run; this can take 30–120 s).
+- **Scanner CLIs (required, but not vendored)** — `semgrep`, `gitleaks`, `trivy`. The MCP server discovers them on `PATH` (or via `SEMGREP_PATH` / `GITLEAKS_PATH` / `TRIVY_PATH`); each developer and each CI runner installs them on the host. The repo deliberately does **not** commit the binaries. Run `npm run setup:scanners` after `npm install` to install everything on a single machine; see [`docs/REQUIRED_SCANNERS.md`](./docs/REQUIRED_SCANNERS.md) for the full per-OS install matrix and the rationale.
+  - [`semgrep`](https://docs.semgrep.dev/) — `pip install semgrep` (or `pipx install semgrep` / `brew install semgrep` / `winget install Semgrep.Semgrep` / `scoop install semgrep` / `choco install semgrep`).
+  - [`gitleaks`](https://github.com/gitleaks/gitleaks) — `brew install gitleaks` / `scoop install gitleaks` / `choco install gitleaks` / `winget install --id GitHub.gitleaks`.
+  - [`trivy`](https://trivy.dev/) — `brew install trivy` / `scoop install trivy` / `choco install trivy` / `winget install --id AquaSecurity.Trivy` (Trivy downloads its vulnerability DB on first run; this can take 30–120 s).
 
 ---
 
@@ -102,6 +103,17 @@ All configuration is via environment variables (and CLI flags where noted). Defa
 | `TRIVY_PATH` | `trivy` | Same. |
 | `INCLUDE_RULE_SETS` | _(unset)_ | Comma-separated Semgrep rule packs, e.g. `p/owasp-top-ten,p/secrets`. |
 | `REDACT_IN_REPORTS` | `true` | Mask secret values in reports to last-4-only. |
+| `SCANNER_FAIL_FAST` | `false` | When `1` / `true`, the server exits at boot if any of semgrep / gitleaks / trivy is missing. Default is "off" so the server still starts and reports missing tools via `unavailable[]`. Set this in CI and on first bootstrap of a new dev machine. |
+
+### External-tool resolution
+
+The server's `ToolManager` discovers each scanner in this order:
+
+1. The matching `*_PATH` env var (if set and points at an executable).
+2. `<projectRoot>/node_modules/.bin/<name>` and `<projectRoot>/bin/<name>` (project-local installs).
+3. `PATH` — via `which` on POSIX, `where` on Windows.
+
+No absolute paths are hardcoded; multiple developers on different machines (and CI runners) all work without any code changes. See [`docs/REQUIRED_SCANNERS.md`](./docs/REQUIRED_SCANNERS.md) for the full resolution rules, supported versions, and the per-OS install matrix.
 
 ### CLI flags
 
@@ -198,6 +210,12 @@ In a Claude Code session pointed at the Spring Boot lab repo, expect:
 4. (Optional) Add language-specific Semgrep rules via `extraRules()`.
 
 There is **no dynamic import or filesystem glob** — the registry is static, so the build step (or `tsx` dev mode) will catch a missing import at startup.
+
+## CI / multi-developer setup
+
+- **Per developer**: run `npm run setup:scanners` (POSIX) or `powershell -ExecutionPolicy Bypass -File scripts/setup-scanners.ps1` (Windows) once after cloning. Re-runs are idempotent.
+- **CI**: see [`.github/workflows/scanners-ci-example.yml`](./.github/workflows/scanners-ci-example.yml) for a complete reference workflow covering `ubuntu-latest`, `macos-latest`, and `windows-latest`. The only step that varies per host is the scanner-installer invocation; everything else is the same.
+- **Custom scanner locations**: set `SEMGREP_PATH` / `GITLEAKS_PATH` / `TRIVY_PATH` to the absolute path of the binary. The `ToolManager` honours the override without code changes.
 
 ---
 

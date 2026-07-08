@@ -17,6 +17,15 @@ const ConfigSchema = z.object({
     .default({}),
   includeRuleSets: z.array(z.string()).default([]),
   redactInReports: z.boolean().default(true),
+  /**
+   * When true, the MCP server fails fast at boot if any required scanner
+   * (semgrep / gitleaks / trivy) is unavailable. Off by default so the
+   * server still starts when a developer hasn't installed everything
+   * yet — missing scanners are reported per-tool via the existing
+   * `unavailable[]` array. Set `SCANNER_FAIL_FAST=1` in CI and on first
+   * bootstrap of a new dev machine.
+   */
+  scannerFailFast: z.boolean().default(false),
   pathSafety: z
     .object({
       /**
@@ -83,6 +92,7 @@ const ENV_KEY_MAP: Record<string, string> = {
   TRIVY_PATH: "perScannerBinaries.trivy",
   INCLUDE_RULE_SETS: "includeRuleSets",
   REDACT_IN_REPORTS: "redactInReports",
+  SCANNER_FAIL_FAST: "scannerFailFast",
   // Path-safety keys
   SECURITY_MCP_ALLOWED_ROOT: "pathSafety.allowedRoot",
   MAX_FILE_BYTES: "pathSafety.maxFileBytes",
@@ -147,7 +157,8 @@ function envToInput(env: NodeJS.ProcessEnv): Record<string, unknown> {
     } else if (
       schemaKey === "redactInReports" ||
       schemaKey === "pathSafety.followSymlinks" ||
-      schemaKey === "pathSafety.allowApplyRemediation"
+      schemaKey === "pathSafety.allowApplyRemediation" ||
+      schemaKey === "scannerFailFast"
     ) {
       const v = raw === "1" || raw.toLowerCase() === "true";
       if (schemaKey.startsWith("pathSafety.")) {
