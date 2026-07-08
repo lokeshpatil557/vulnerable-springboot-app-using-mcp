@@ -1,6 +1,20 @@
+/**
+ * JSON report — full normalized findings + rich summary.
+ *
+ * Includes every `SecurityFinding` object (so downstream tooling can
+ * re-emit or filter) plus a `summary` block that aggregates by
+ * severity, category, OWASP, CWE, and top rules. The schema is
+ * versioned; downstream consumers should pin to `schemaVersion`.
+ */
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, isAbsolute, join } from "node:path";
-import { groupBySeverity, topRules } from "../compliance.js";
+import {
+  countByCategory,
+  groupByCwe,
+  groupByOwasp,
+  groupBySeverity,
+  topRules,
+} from "./summary.js";
 import type { SecurityFinding } from "../findings.js";
 
 export interface ReportMeta {
@@ -18,6 +32,9 @@ export interface JsonReport {
   summary: {
     total: number;
     bySeverity: Record<string, number>;
+    byCategory: Record<string, number>;
+    byOwasp: Record<string, number>;
+    byCwe: Record<string, number>;
     topRules: { ruleId: string; count: number }[];
   };
   findings: SecurityFinding[];
@@ -34,6 +51,9 @@ export async function writeJsonReport(
     summary: {
       total: findings.length,
       bySeverity: groupBySeverity(findings),
+      byCategory: countByCategory(findings),
+      byOwasp: groupByOwasp(findings),
+      byCwe: groupByCwe(findings),
       topRules: topRules(findings, 10),
     },
     findings,

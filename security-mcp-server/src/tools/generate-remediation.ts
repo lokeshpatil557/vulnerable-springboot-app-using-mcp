@@ -3,7 +3,7 @@ import { join } from "node:path";
 import type { ToolContext, AnyMcpServer } from "./_shared.js";
 import { z, auditWrap, ok } from "./_shared.js";
 import { proposeRemediation, buildGuidance, buildUnifiedDiff, type RemediationGuidance } from "../remediation.js";
-import { assertInsideRepo } from "../paths.js";
+import { guardRemediationFile, guardDiffPayload, policyFromConfig } from "../security/path-safety.js";
 import { RemediationNotFoundError } from "../errors.js";
 
 interface StoredRemediation {
@@ -51,7 +51,21 @@ export function register(server: AnyMcpServer, ctx: ToolContext): void {
           includeGuidance?: boolean;
         };
         const includeGuidance = a.includeGuidance !== false;
-        const abs = assertInsideRepo(ctx.repoRoot, a.filePath);
+        const policy = policyFromConfig(ctx.config.pathSafety, ctx.repoRoot);
+        // Enforce all path-safety checks: 1 (allowed root), 2 (no
+        // traversal), 3 (no symlink escape), 4 (no home/root),
+        // 5 (no binary for remediation), 6 (size caps).
+        const guarded = await guardRemediationFile(
+          ctx.repoRoot,
+          a.filePath,
+          policy,
+          { tool: "generate_remediation" },
+        );
+        const abs = guarded.absPath;
+        // Also cap the inbound fixDiff payload (requirement 6).
+        if (a.fixDiff) {
+          guardDiffPayload(a.fixDiff, policy, { tool: "generate_remediation" });
+        }
         let contents = "";
         try {
           contents = await readFile(abs, "utf8");

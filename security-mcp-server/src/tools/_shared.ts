@@ -113,13 +113,26 @@ export function auditWrap(
         durationMs: monotonicMs() - start,
         outcome: "ok",
         errorCode: null,
+        pathSafe: true,
       });
       return { content: [{ type: "text", text: JSON.stringify({ ok: true, ...result }) }] };
     })
     .catch((err: unknown): ToolCallResult => {
-      const outcome = /tool_unavailable|scanner.*not.*found/.test(String((err as { code?: string }).code ?? err))
-        ? "unavailable"
-        : "error";
+      const code = String((err as { code?: string }).code ?? err);
+      const isDenial =
+        code === "path_escape" ||
+        code === "path_traversal" ||
+        code === "forbidden_ancestor" ||
+        code === "blocked_file" ||
+        code === "symlink_escape" ||
+        code === "payload_too_large" ||
+        code === "binary_file" ||
+        code === "apply_policy_denied";
+      const outcome: "error" | "unavailable" | "denied" = isDenial
+        ? "denied"
+        : /tool_unavailable|scanner.*not.*found/.test(code)
+          ? "unavailable"
+          : "error";
       ctx.audit.record({
         ts: new Date().toISOString(),
         tool,
@@ -127,7 +140,8 @@ export function auditWrap(
         findingCount: 0,
         durationMs: monotonicMs() - start,
         outcome,
-        errorCode: (err as { code?: string }).code ?? "error",
+        errorCode: code,
+        pathSafe: !isDenial,
       });
       return toMcpErrorBody(err);
     });

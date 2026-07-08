@@ -3,7 +3,7 @@ import { dirname, isAbsolute, resolve } from "node:path";
 import { pino, type Logger } from "pino";
 import type { Config } from "./config.js";
 
-export type AuditOutcome = "ok" | "error" | "unavailable";
+export type AuditOutcome = "ok" | "error" | "unavailable" | "denied";
 
 export interface AuditEvent {
   ts: string;
@@ -13,6 +13,12 @@ export interface AuditEvent {
   durationMs: number;
   outcome: AuditOutcome;
   errorCode: string | null;
+  /** Path-safety flag — true when the request did not attempt to escape the repo. */
+  pathSafe?: boolean;
+  /** Optional per-request correlation id. */
+  requestId?: string;
+  /** Per-tool actor (e.g. the model session, user id). */
+  actor?: string;
 }
 
 /** Paths whose values are redacted in audit args before serialization. */

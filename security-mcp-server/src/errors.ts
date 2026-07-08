@@ -19,6 +19,77 @@ export class PathEscapeError extends Error {
   }
 }
 
+export class TraversalError extends Error {
+  readonly code = "path_traversal";
+  constructor(public readonly candidate: string) {
+    super(`Path '${candidate}' contains traversal segments (.., encoded, or NUL bytes)`);
+    this.name = "TraversalError";
+  }
+}
+
+export class ForbiddenAncestorError extends Error {
+  readonly code = "forbidden_ancestor";
+  constructor(public readonly candidate: string, public readonly ancestor: string) {
+    super(
+      `Path '${candidate}' is under forbidden ancestor '${ancestor}' ` +
+        `(home, parent of home, or filesystem root are not allowed)`,
+    );
+    this.name = "ForbiddenAncestorError";
+  }
+}
+
+export class BlockedFileError extends Error {
+  readonly code = "blocked_file";
+  constructor(public readonly candidate: string, public readonly pattern: string) {
+    super(`Path '${candidate}' matches blocked pattern '${pattern}'`);
+    this.name = "BlockedFileError";
+  }
+}
+
+export class SymlinkEscapeError extends Error {
+  readonly code = "symlink_escape";
+  constructor(public readonly candidate: string, public readonly target: string) {
+    super(
+      `Symlink '${candidate}' resolves to '${target}' which is outside the allowed root`,
+    );
+    this.name = "SymlinkEscapeError";
+  }
+}
+
+export class PayloadTooLargeError extends Error {
+  readonly code = "payload_too_large";
+  constructor(
+    public readonly what: "file" | "diff" | "repo",
+    public readonly actualBytes: number,
+    public readonly maxBytes: number,
+  ) {
+    super(
+      `${what} payload of ${actualBytes} bytes exceeds limit of ${maxBytes} bytes`,
+    );
+    this.name = "PayloadTooLargeError";
+  }
+}
+
+export class BinaryFileError extends Error {
+  readonly code = "binary_file";
+  constructor(public readonly candidate: string) {
+    super(
+      `File '${candidate}' appears to be binary; remediation is only allowed for text files`,
+    );
+    this.name = "BinaryFileError";
+  }
+}
+
+export class ApplyPolicyDeniedError extends Error {
+  readonly code = "apply_policy_denied";
+  constructor(public readonly repoRoot: string) {
+    super(
+      `apply_remediation is disabled by policy (ALLOW_APPLY_REMEDIATION=1 required) for repo '${repoRoot}'`,
+    );
+    this.name = "ApplyPolicyDeniedError";
+  }
+}
+
 export class ToolUnavailableError extends Error {
   readonly code = "tool_unavailable";
   constructor(public readonly tool: string, public readonly reason: string) {

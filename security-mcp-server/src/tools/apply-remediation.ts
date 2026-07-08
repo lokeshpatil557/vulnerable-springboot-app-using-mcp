@@ -4,8 +4,8 @@ import type { ToolContext, AnyMcpServer } from "./_shared.js";
 import { z, auditWrap, ok } from "./_shared.js";
 import { applyWithBackup, rollback } from "../diff.js";
 import { runScanners } from "../scanners/registry.js";
-import { assertInsideRepo } from "../paths.js";
-import { InvalidInputError, RemediationNotFoundError } from "../errors.js";
+import { guardApply, policyFromConfig } from "../security/path-safety.js";
+import { ApplyPolicyDeniedError, InvalidInputError, RemediationNotFoundError } from "../errors.js";
 import { writeTextFileAtomic } from "../util/fs.js";
 
 interface StoredRemediation {
@@ -37,6 +37,11 @@ export function register(server: AnyMcpServer, ctx: ToolContext): void {
         if (a.acknowledged !== true) {
           throw new InvalidInputError("apply_remediation requires acknowledged: true");
         }
+        // Policy gate: apply_remediation is disabled unless
+        // ALLOW_APPLY_REMEDIATION=1. Fail-closed.
+        if (!ctx.config.pathSafety.allowApplyRemediation) {
+          throw new ApplyPolicyDeniedError(ctx.repoRoot);
+        }
         // Load the prior remediation record.
         const recordPath = join(ctx.repoRoot, ".security-mcp", "remediations", `${a.findingId}.json`);
         let record: StoredRemediation;
@@ -45,22 +50,24 @@ export function register(server: AnyMcpServer, ctx: ToolContext): void {
         } catch {
           throw new RemediationNotFoundError(a.findingId);
         }
-        // Apply the change. The diff is a unified diff; for the MVP we
-        // expect the caller to provide the new file contents in the
-        // `description` extension or — better — we re-derive by reading
-        // the current file and applying the stored diff. For now, we treat
-        // `diff` as the full new file contents when there's no `--- /+++`
-        // header, otherwise we re-read the file and assume the user
-        // intends the diff to be a no-op until the pipeline is wired up.
-        const abs = assertInsideRepo(ctx.repoRoot, record.filePath);
+        // Enforce path-safety on the stored filePath and the inbound diff.
+        const policy = policyFromConfig(ctx.config.pathSafety, ctx.repoRoot);
+        const guarded = await guardApply(
+          ctx.repoRoot,
+          record.filePath,
+          a.diff,
+          policy,
+          { tool: "apply_remediation" },
+        );
+        const abs = guarded.absPath;
         let current = "";
         try {
           current = await readFile(abs, "utf8");
         } catch {
           // file may not exist yet
         }
-        const looksLikeUnified = /^--- |^\*\*\* /m.test(a.diff);
-        const newContents = looksLikeUnified ? current : a.diff;
+        const looksLikeUnified = /^--- |^\*\*\* /m.test(guarded.diff);
+        const newContents = looksLikeUnified ? current : guarded.diff;
         if (looksLikeUnified) {
           // We can't apply unified diffs deterministically without a real
           // patcher. For v1 we surface a clear error and ask the user to
