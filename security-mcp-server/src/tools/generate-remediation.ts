@@ -2,8 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { ToolContext, AnyMcpServer } from "./_shared.js";
 import { z, auditWrap, ok } from "./_shared.js";
-import { proposeRemediation } from "../remediation.js";
-import { generateUnifiedDiff } from "../diff.js";
+import { proposeRemediation, buildGuidance, buildUnifiedDiff, type RemediationGuidance } from "../remediation.js";
 import { assertInsideRepo } from "../paths.js";
 import { RemediationNotFoundError } from "../errors.js";
 
@@ -16,12 +15,18 @@ interface StoredRemediation {
   confidence: "high" | "low";
   source: "semgrep_fix" | "template" | "manual";
   createdAt: string;
+  /** Rich per-finding guidance (items 1-10 of the remediation spec).
+   *  Read-only; `apply_remediation` ignores this field. */
+  guidance?: RemediationGuidance;
 }
 
 export function register(server: AnyMcpServer, ctx: ToolContext): void {
   server.tool(
     "generate_remediation",
-    "Generate a unified-diff remediation for a single finding. Read-only — does not modify files. " +
+    "Generate a structured remediation for a single finding. Read-only — does not modify files. " +
+      "Returns a 10-field guidance object (vulnerability explanation, exploit scenario, impact, " +
+      "severity reasoning, secure recommendation, code guidance, patch suggestion, unified diff, " +
+      "PR description, and verification steps) alongside the existing unified diff. " +
       "Use apply_remediation to actually apply the change. Priority: Semgrep's own fix -> rule template -> manual review.",
     {
       findingId: z.string().min(1).max(256),
@@ -31,6 +36,7 @@ export function register(server: AnyMcpServer, ctx: ToolContext): void {
       startLine: z.number().int().positive().optional(),
       fixDescription: z.string().optional(),
       fixDiff: z.string().optional(),
+      includeGuidance: z.boolean().optional().default(true),
     },
     async (args) =>
       auditWrap(ctx, "generate_remediation", args, async () => {
@@ -42,7 +48,9 @@ export function register(server: AnyMcpServer, ctx: ToolContext): void {
           startLine?: number;
           fixDescription?: string;
           fixDiff?: string;
+          includeGuidance?: boolean;
         };
+        const includeGuidance = a.includeGuidance !== false;
         const abs = assertInsideRepo(ctx.repoRoot, a.filePath);
         let contents = "";
         try {
@@ -63,9 +71,37 @@ export function register(server: AnyMcpServer, ctx: ToolContext): void {
           fingerprint: a.findingId,
         };
         if (a.fixDiff) {
-          finding.fix = { description: a.fixDescription ?? "Semgrep fix", diff: a.fixDiff };
+          (finding as { fix?: { description: string; diff: string } }).fix = {
+            description: a.fixDescription ?? "Semgrep fix",
+            diff: a.fixDiff,
+          };
         }
         const proposal = proposeRemediation(finding, contents);
+
+        // Build the rich guidance. The tool never mutates files; the
+        // `apply_remediation` path reads the same on-disk record.
+        let guidance: RemediationGuidance | undefined;
+        if (includeGuidance) {
+          // We pass the (possibly empty) old contents to the guidance
+          // module. `buildUnifiedDiff` produces the actual diff text from
+          // the original contents; the guidance module cannot compute it
+          // on its own because it has no access to the proposed new
+          // contents (that would require running `proposeRemediation`).
+          const proposalAsFinding = { ...finding } as Parameters<typeof buildGuidance>[0];
+          if (a.fixDiff) {
+            (proposalAsFinding as { fix?: { description: string; diff: string } }).fix = {
+              description: a.fixDescription ?? "Semgrep fix",
+              diff: a.fixDiff,
+            };
+          }
+          // The proposal may have produced a non-empty diff (when a rule
+          // template fired). When it did, the guidance's `diff` field
+          // should be that diff; otherwise the field stays empty.
+          const guidanceDiff = proposal.diff || "";
+          const built = buildGuidance(proposalAsFinding, contents, { now: new Date() });
+          guidance = { ...built, diff: guidanceDiff };
+        }
+
         // Persist for apply_remediation.
         const id = a.findingId;
         const record: StoredRemediation = {
@@ -78,17 +114,24 @@ export function register(server: AnyMcpServer, ctx: ToolContext): void {
           source: proposal.source,
           createdAt: new Date().toISOString(),
         };
+        if (guidance) record.guidance = guidance;
         const dir = join(ctx.repoRoot, ".security-mcp", "remediations");
-        await import("../util/fs.js").then((m) => m.writeTextFileAtomic(join(dir, `${id}.json`), JSON.stringify(record, null, 2)));
+        await import("../util/fs.js").then((m) =>
+          m.writeTextFileAtomic(join(dir, `${id}.json`), JSON.stringify(record, null, 2)),
+        );
         // Always return a diff string (possibly the full-file diff for manual fallback).
-        const finalDiff = proposal.diff || generateUnifiedDiff(a.filePath, contents, contents);
-        return ok({
+        const finalDiff = proposal.diff || buildUnifiedDiff(a.filePath, contents, contents);
+        const result: Record<string, unknown> = {
           findingId: a.findingId,
           description: proposal.description,
           diff: finalDiff,
           confidence: proposal.confidence,
           source: proposal.source,
-        });
+        };
+        if (guidance) {
+          result.guidance = guidance;
+        }
+        return ok(result);
       }),
   );
 }

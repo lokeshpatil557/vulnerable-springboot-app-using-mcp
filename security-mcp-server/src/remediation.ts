@@ -2,6 +2,19 @@ import { lookupTemplate, type RemediationTemplate } from "./rules/index.js";
 import { generateUnifiedDiff } from "./diff.js";
 import type { SecurityFinding } from "./findings.js";
 
+// Re-export the guidance module so the tool layer can import both
+// `proposeRemediation` and `buildGuidance` from a single entry point.
+// `buildGuidance` is read-only and never mutates files.
+export {
+  buildGuidance,
+  buildUnifiedDiff,
+  type RemediationGuidance,
+  type BuildGuidanceOptions,
+  type PatchSuggestion,
+  type VerificationPlan,
+  type ImpactAssessment,
+} from "./remediation/guidance.js";
+
 export interface RemediationProposal {
   findingId: string;
   ruleId: string;

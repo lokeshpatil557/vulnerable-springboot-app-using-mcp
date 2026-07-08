@@ -4,3 +4,5 @@
 {"level":"info","time":"2026-07-07T13:52:12.568Z","ts":"2026-07-07T13:52:12.568Z","tool":"identify_codebase","args":{"path":"sprint_boot_applications_demo_git/pom.xml"},"findingCount":0,"durationMs":273,"outcome":"ok","errorCode":null,"msg":"audit"}
 {"level":"info","time":"2026-07-07T14:01:23.186Z","ts":"2026-07-07T14:01:23.186Z","tool":"identify_codebase","args":{"path":"sprint_boot_applications_demo_git"},"findingCount":0,"durationMs":1374,"outcome":"ok","errorCode":null,"msg":"audit"}
 {"level":"info","time":"2026-07-07T14:01:41.159Z","ts":"2026-07-07T14:01:41.159Z","tool":"identify_codebase","args":{"path":".triv-empty-test"},"findingCount":0,"durationMs":1919,"outcome":"ok","errorCode":null,"msg":"audit"}
+{"level":"info","time":"2026-07-07T20:12:26.445Z","ts":"2026-07-07T20:12:26.440Z","tool":"identify_codebase","args":{"path":"."},"findingCount":0,"durationMs":33,"outcome":"error","errorCode":"error","msg":"audit"}
+{"level":"info","time":"2026-07-07T20:16:24.789Z","ts":"2026-07-07T20:16:24.789Z","tool":"identify_codebase","args":{"path":"."},"findingCount":0,"durationMs":4,"outcome":"error","errorCode":"error","msg":"audit"}

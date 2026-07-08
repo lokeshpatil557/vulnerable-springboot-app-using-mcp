@@ -41,6 +41,12 @@ export const GenerateRemediationInput = z.object({
   findingId: z.string().min(1).max(256),
   diff: z.string().optional(),
   description: z.string().optional(),
+  /**
+   * When true (default), the tool returns a rich 10-field `guidance`
+   * object alongside the diff. When false, the response is the legacy
+   * `{ findingId, description, diff, confidence, source }` shape.
+   */
+  includeGuidance: z.boolean().optional().default(true),
 });
 
 export const ApplyRemediationInput = z.object({

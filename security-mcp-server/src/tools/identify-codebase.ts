@@ -20,7 +20,7 @@ import type { ToolContext, AnyMcpServer } from "./_shared.js";
 import { z, auditWrap, ok } from "./_shared.js";
 import { identifyCodebase } from "../stack-detect.js";
 import { assertInsideRepo, relativeToRepo } from "../paths.js";
-import { gitRevParseShowToplevel } from "../utils/git.js";
+import { getGitRoot } from "../utils/git.js";
 import { PathEscapeError } from "../security/path-safety.js";
 import type { ScannerRegistry } from "../scanners/registry.js";
 
@@ -645,7 +645,7 @@ export function register(server: AnyMcpServer, ctx: ToolContext): void {
         }
 
         // 2. Detect Git repository root (via `git rev-parse --show-toplevel`).
-        const gitRoot = await gitRevParseShowToplevel(scanRoot);
+        const gitRoot = await getGitRoot(scanRoot);
 
         // 3. Frameworks via existing adapters (manifest-based).
         const frameworkMatches = await identifyCodebase(scanRoot);
