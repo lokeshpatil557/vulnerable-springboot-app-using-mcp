@@ -17,6 +17,12 @@ describe("findings", () => {
     expect(f).not.toBe(fingerprint({ ruleId: "r2", path: "a/b", startLine: 10, message: "hi" }));
   });
 
+  it("fingerprint stays stable when the finding moves to a different line", () => {
+    const original = fingerprint({ ruleId: "r1", path: "a/b", startLine: 10, message: "hi" });
+    const shifted = fingerprint({ ruleId: "r1", path: "a/b", startLine: 99, message: "hi" });
+    expect(shifted).toBe(original);
+  });
+
   it("severityFromCvss maps CVSS to buckets", () => {
     expect(severityFromCvss(9.5)).toBe("critical");
     expect(severityFromCvss(8.0)).toBe("high");
