@@ -16,6 +16,7 @@ export function register(server: AnyMcpServer, ctx: ToolContext): void {
     async (args) =>
       auditWrap(ctx, "scan_directory", args, async () => {
         const input = args as unknown as RunScannersInput;
+        const startedAt = new Date();
         const { findings, unavailable, durationMs, perScanner } = await runScanners(
           {
             root: ctx.repoRoot,
@@ -28,6 +29,7 @@ export function register(server: AnyMcpServer, ctx: ToolContext): void {
           { ids: input.ids },
           ctx.logger,
         );
+        const finishedAt = new Date();
         // Persist findings for downstream tools (verify_fix, generate_security_report).
         const scanId = `scan-${Date.now()}`;
         const scanPath = join(ctx.repoRoot, ".security-mcp", "scans", `${scanId}.json`);
@@ -40,8 +42,8 @@ export function register(server: AnyMcpServer, ctx: ToolContext): void {
             trivy: undefined,
           },
           scanId,
-          startedAt: new Date().toISOString(),
-          finishedAt: new Date().toISOString(),
+          startedAt: startedAt.toISOString(),
+          finishedAt: finishedAt.toISOString(),
           durationMs,
         });
         return ok({

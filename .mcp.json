@@ -3,9 +3,12 @@
     "security-mcp-server": {
       "type": "stdio",
       "command": "node",
-      "args": ["${CLAUDE_PROJECT_DIR:-.}/security-mcp-server/dist/index.js"],
+      "args": ["../security-mcp-server/dist/index.js"],
       "env": {
-        "LOG_LEVEL": "info"
+        "LOG_LEVEL": "info",
+        "ALLOW_APPLY_REMEDIATION": "1",
+        "BLOCKED_ANCESTORS": "",
+        "SECURITY_MCP_ALLOWED_ROOT": "${CLAUDE_PROJECT_DIR:-.}"
       }
     }
   }
